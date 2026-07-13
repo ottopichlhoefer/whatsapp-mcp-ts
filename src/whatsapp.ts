@@ -120,12 +120,11 @@ export async function startWhatsAppConnection(
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        logger.info(
-          { qrCodeData: qr },
-          "QR Code Received. Copy the qrCodeData string and use a QR code generator (e.g., online website) to display and scan it with your WhatsApp app."
-        );
-        // for now we roughly open the QR code in a browser
-        await open(`https://quickchart.io/qr?text=${encodeURIComponent(qr)}`);
+        logger.info("QR Code received; rendering in terminal.");
+        // Local patch: render in terminal instead of shipping the pairing
+        // payload (incl. adv secret) to quickchart.io. Upstream: whatsapp.ts:128.
+        const qrcode = await import("qrcode-terminal");
+        (qrcode.default ?? qrcode).generate(qr, { small: true });
       }
 
       if (connection === "close") {
