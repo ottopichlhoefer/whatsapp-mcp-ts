@@ -22,3 +22,7 @@ data/
 .DS_Store
 Thumbs.db
 .roo
+# whatsapp service machine-local glue (hardcoded per-machine paths)
+service/start.cmd
+service/start.vbs
+service/*.log
