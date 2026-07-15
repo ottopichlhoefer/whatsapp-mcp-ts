@@ -25,6 +25,15 @@ const AUTH_DIR = path.join(import.meta.dirname, "..", "auth_info");
 
 export type WhatsAppSocket = ReturnType<typeof makeWASocket>;
 
+// Local addition: track the current live socket. startWhatsAppConnection
+// recreates the socket on reconnect (connection "close"), so a one-time
+// return value goes stale. The capture daemon's outbox drain sends through
+// getCurrentSock() to always use the live socket. See service/README-local.md.
+let currentSock: WhatsAppSocket | null = null;
+export function getCurrentSock(): WhatsAppSocket | null {
+  return currentSock;
+}
+
 function parseMessageForDb(msg: WAMessage): DbMessage | null {
   if (!msg.message || !msg.key || !msg.key.remoteJid) {
     return null;
@@ -113,6 +122,8 @@ export async function startWhatsAppConnection(
     generateHighQualityLinkPreview: true,
     shouldIgnoreJid: (jid) => isJidGroup(jid),
   });
+
+  currentSock = sock;
 
   sock.ev.process(async (events) => {
     if (events["connection.update"]) {
