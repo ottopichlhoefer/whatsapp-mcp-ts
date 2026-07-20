@@ -8,6 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureOriginDir } from "./lib/outbox-migrate.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(HERE, "..", "data", "whatsapp.db");
@@ -32,6 +33,7 @@ outbox.exec(`
     wa_msg_id     TEXT
   );
 `);
+ensureOriginDir(outbox);
 
 function toRecipientJid(recipient) {
   const r = String(recipient).trim();
@@ -118,15 +120,15 @@ server.tool(
 
 server.tool(
   "send_message",
-  "Queue a WhatsApp text message for delivery. Enqueues to the local outbox; the capture daemon (sole owner of the WhatsApp connection) delivers it within a few seconds. 'recipient' is a phone number (digits, optional + or spaces) or a full JID (e.g. 2547XXXXXXXX@s.whatsapp.net). Confirm delivery with outbox_status.",
-  { recipient: z.string().min(3), message: z.string().min(1) },
-  async ({ recipient, message }) => {
+  "Queue a WhatsApp text message for delivery. Enqueues to the local outbox; the capture daemon (sole owner of the WhatsApp connection) delivers it within a few seconds. 'recipient' is a phone number (digits, optional + or spaces) or a full JID (e.g. 2547XXXXXXXX@s.whatsapp.net). 'origin_dir' is the project working directory this send originates from (Claude Code: pass your session's cwd) — used to attribute the message to a project's comms log; omit if not applicable. Confirm delivery with outbox_status.",
+  { recipient: z.string().min(3), message: z.string().min(1), origin_dir: z.string().optional() },
+  async ({ recipient, message, origin_dir }) => {
     const jid = toRecipientJid(recipient);
     const info = outbox
       .prepare(
-        "INSERT INTO outbox (recipient_jid, content, status, created_at) VALUES (?, ?, 'pending', ?)"
+        "INSERT INTO outbox (recipient_jid, content, status, created_at, origin_dir) VALUES (?, ?, 'pending', ?, ?)"
       )
-      .run(jid, message, Date.now());
+      .run(jid, message, Date.now(), origin_dir ?? process.cwd());
     return {
       content: [
         {

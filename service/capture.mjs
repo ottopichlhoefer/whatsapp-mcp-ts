@@ -8,6 +8,7 @@ import { pino } from "pino";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { ensureOriginDir } from "./lib/outbox-migrate.mjs";
 import { initializeDatabase } from "../src/database.ts";
 import {
   startWhatsAppConnection,
@@ -49,6 +50,7 @@ outbox.exec(`
     wa_msg_id     TEXT
   );
 `);
+ensureOriginDir(outbox);
 
 let draining = false;
 async function drainOutbox() {
