@@ -33,6 +33,21 @@ Deviations from upstream:
    read-only from the reader. `send_message` only ENQUEUES; it never touches a
    socket, so the reader still cannot connect to WA or auto-reply.
 
+4. Resend lookup (2026-10-11) — src/whatsapp.ts passes `getMessage` to the
+   socket, fed through `setSentMessageLookup()`; service/lib/sent-lookup.mjs
+   answers it from `data/outbox.db` by `wa_msg_id`. Without it Baileys drops
+   retry receipts, and the device that could not decrypt a send shows "Waiting
+   for this message" for good (observed 2026-10-11, own devices 0 and 20).
+   Every request logs `outbox: resend lookup` at info level. Sends to a
+   phone-number JID fail to decrypt on the account's own devices and depend on
+   this resend; sends to the chat's `@lid` JID decrypt on the first try.
+5. Phone number to @lid (2026-10-11) — before each send the outbox drain calls
+   service/lib/lid-address.mjs: a `…@s.whatsapp.net` recipient is looked up
+   with `sock.onWhatsApp()` and the send goes to the `@lid` it reports (log:
+   `outbox: resolved phone number to @lid`). Groups and `@lid` recipients pass
+   through; a failed or empty lookup keeps the phone-number address. The
+   outbox row keeps the address the caller asked for.
+
 Outbound path (revised 2026-07-14): sends now go through this instance's
 outbox (reader enqueues → capture daemon delivers), which is why it needs no
 second socket and does not use the OpenClaw bridge for arbitrary targets.

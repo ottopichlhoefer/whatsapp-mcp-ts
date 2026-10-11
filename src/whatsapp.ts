@@ -34,6 +34,16 @@ export function getCurrentSock(): WhatsAppSocket | null {
   return currentSock;
 }
 
+// Local addition: source for Baileys' getMessage. A device that cannot decrypt
+// one of our sends asks for a resend; without the original content Baileys
+// drops the request and that device shows "Waiting for this message". Read at
+// call time, so it survives the socket being recreated on reconnect.
+type SentMessageLookup = (key: proto.IMessageKey) => proto.IMessage | undefined;
+let sentMessageLookup: SentMessageLookup | null = null;
+export function setSentMessageLookup(lookup: SentMessageLookup): void {
+  sentMessageLookup = lookup;
+}
+
 function parseMessageForDb(msg: WAMessage): DbMessage | null {
   if (!msg.message || !msg.key || !msg.key.remoteJid) {
     return null;
@@ -121,6 +131,7 @@ export async function startWhatsAppConnection(
     },
     generateHighQualityLinkPreview: true,
     shouldIgnoreJid: (jid) => isJidGroup(jid),
+    getMessage: async (key) => sentMessageLookup?.(key),
   });
 
   currentSock = sock;

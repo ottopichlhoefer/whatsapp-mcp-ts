@@ -9,11 +9,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { ensureOriginDir } from "./lib/outbox-migrate.mjs";
+import { makeSentMessageLookup } from "./lib/sent-lookup.mjs";
+import { toLidAddress } from "./lib/lid-address.mjs";
 import { initializeDatabase } from "../src/database.ts";
 import {
   startWhatsAppConnection,
   sendWhatsAppMessage,
   getCurrentSock,
+  setSentMessageLookup,
 } from "../src/whatsapp.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -51,6 +54,8 @@ outbox.exec(`
   );
 `);
 ensureOriginDir(outbox);
+// Resend requests (retry receipts) are answered from the outbox.
+setSentMessageLookup(makeSentMessageLookup(outbox, logger));
 
 let draining = false;
 async function drainOutbox() {
@@ -64,7 +69,8 @@ async function drainOutbox() {
       .all();
     for (const row of rows) {
       try {
-        const res = await sendWhatsAppMessage(logger, sock, row.recipient_jid, row.content);
+        const to = await toLidAddress(sock, row.recipient_jid, logger);
+        const res = await sendWhatsAppMessage(logger, sock, to, row.content);
         if (res && res.key && res.key.id) {
           outbox
             .prepare("UPDATE outbox SET status='sent', sent_at=?, wa_msg_id=? WHERE id=?")
