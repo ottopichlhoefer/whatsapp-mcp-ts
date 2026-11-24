@@ -47,6 +47,11 @@ Deviations from upstream:
    `outbox: resolved phone number to @lid`). Groups and `@lid` recipients pass
    through; a failed or empty lookup keeps the phone-number address. The
    outbox row keeps the address the caller asked for.
+6. @lid contacts (2026-11-23) — `node service/link-lids.mjs [--apply]
+   [--archive <db>]` fills name and phone number of `@lid` contacts from the
+   WhatsApp desktop app's local LID.sqlite and ContactsV2.sqlite (no network,
+   no socket). Dry run by default; fills only empty fields. Re-run after new
+   `@lid` chats appear; `--archive` points it at the other instance's db.
 
 Outbound path (revised 2026-07-14): sends now go through this instance's
 outbox (reader enqueues → capture daemon delivers), which is why it needs no
